@@ -1,8 +1,8 @@
 class TextNowExporter{
     constructor(){
-        this.filesDownloaded = []
+        this.filesDownloaded = {}
+        this.urlCommands = []
         this.queue = []
-        this.queueStarted = false
 
         this.downloadConversations((new Date()).toISOString())
 
@@ -11,12 +11,7 @@ class TextNowExporter{
         }, 500)
     }
 
-    downloadConversations(updatedAt, lastConversation){
-        // if((new Date(updatedAt) < new Date('2022'))){
-        //     console.log('Date limit reached', updatedAt)
-        //     return
-        // }
-
+    downloadConversations(updatedAt){
         console.log('Loading recent conversations from', updatedAt)
 
         const pageSize = 30 // This is the max that the API supports
@@ -25,32 +20,34 @@ class TextNowExporter{
         .then(data => {
             const result = data.result
             
-            let lastConversationFound = lastConversation === undefined
             result.forEach((conversation) => {
-                if(lastConversationFound){
-                    this.downloadConversation(conversation)
-                }
-                else if(conversation.contact_value === lastConversation.contact_value){
-                    lastConversationFound = true
+                const filename = conversation.contact_value + '.json'
+                if(this.filesDownloaded[filename] === undefined){
+                    this.downloadConversation(filename, conversation)
                 }
             })
 
             if(result.length >= pageSize){
-                lastConversation = result.at(-1)
-                this.downloadConversations(lastConversation.updated_at, lastConversation)
+                this.downloadConversations(result.at(-1).updated_at)
             }
             else{
-                console.log('Finished processing conversations')
-                console.log('Waiting for files to finish downloading...  Please look for errors.')
+                const fileDownloadFilename = 'download-textnow-files.sh'
+                this.queueDownload(fileDownloadFilename, 'data:text/plain;charset=utf-8,' + this.urlCommands.join("\n"))
+
+                const fileListFilename = 'textnow-export-file-list.txt'
+                this.queueDownload(fileListFilename, 'data:text/plain;charset=utf-8,' + Object.keys(this.filesDownloaded).join("\n"))
+                
+                console.log('Finished exporting conversations. Run ' + fileDownloadFilename + ', then make sure all the files listed in ' + fileListFilename + ' were successfully downloaded.')
             }
         })
     }
 
-    async downloadConversation(conversation){
+    async downloadConversation(filename, conversation){
         const json = await fetch('https://www.textnow.com/api/users/' + conversation.username + '/messages?contact_value=' + conversation.contact_value + '&start_message_id=99999999999999&direction=past&page_size=9999999&get_archived=1')
             .then(response => response.text())
         
-        this.queueDownload(conversation.contact_value + '.json', 'data:text/plain;charset=utf-8,' + json)
+        this.filesDownloaded[filename] = true
+        this.queueDownload(filename, 'data:text/plain;charset=utf-8,' + json)
     
         JSON.parse(json).messages.forEach((m) => {
             const type = m.message_type
@@ -70,16 +67,16 @@ class TextNowExporter{
                 extension = m.message.split('.').pop()
             }
             else{
-                throw 'Unsupported message type of ' + m.message_type + ' on ' + conversation.contact_value
+                console.log('Skipping unsupported message_type:', m)
             }
     
-            this.queueDownload(m.id + extension, m.message)
+            const filename = m.id + extension
+            this.urlCommands.push('curl "' + m.message + '" -o ' + filename)
+            this.filesDownloaded[filename] = true
         })
     }
     
     queueDownload(filename, url){
-        this.queueStarted = true
-        this.filesDownloaded.push(filename)
         this.queue.push(() => {
             var xhr = new XMLHttpRequest();
             xhr.open("GET", url, true);
@@ -99,16 +96,7 @@ class TextNowExporter{
     }
 
     processQueueItem(){
-        if(!this.queueStarted){
-            return
-        }
-        else if(this.queue.length === 0){
-            const fileListFilename = 'textnow-export-file-list.txt'
-            this.queueDownload(fileListFilename, 'data:text/plain;charset=utf-8,' + this.filesDownloaded.join("\n"))
-            
-            this.queueStarted = false
-            console.log('Finished exporting. Please make sure all the files listed in ' + fileListFilename + ' finished downloading.')
-
+        if(this.queue.length === 0){
             return
         }
 
