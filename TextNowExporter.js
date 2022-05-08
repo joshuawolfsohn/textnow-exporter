@@ -37,7 +37,8 @@ class TextNowExporter{
                 const fileListFilename = 'textnow-export-file-list.txt'
                 this.queueDownload(fileListFilename, 'data:text/plain;charset=utf-8,' + Object.keys(this.filesDownloaded).join("\n"))
                 
-                console.log('Finished exporting conversations. Run ' + fileDownloadFilename + ', then make sure all the files listed in ' + fileListFilename + ' were successfully downloaded.')
+                console.log('Finished processing conversations')
+                console.log('Once the downloads finish, run ' + fileDownloadFilename + ', then make sure all the files listed in ' + fileListFilename + ' were successfully downloaded.')
             }
         })
     }
