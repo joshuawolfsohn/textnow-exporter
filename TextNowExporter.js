@@ -1,8 +1,9 @@
 class TextNowExporter{
-    constructor(){
+    constructor(limitDate){
         this.filesDownloaded = {}
         this.urlCommands = []
         this.queue = []
+        this.limitDate = limitDate
 
         this.downloadConversations((new Date()).toISOString())
 
@@ -27,18 +28,14 @@ class TextNowExporter{
                 }
             })
 
-            if(result.length >= pageSize){
-                this.downloadConversations(result.at(-1).updated_at)
-            }
-            else{
-                const fileDownloadFilename = 'download-textnow-files.sh'
-                this.queueDownload(fileDownloadFilename, 'data:text/plain;charset=utf-8,' + this.urlCommands.join("\n"))
+            const lastUpdatedAt = result.at(-1).updated_at
 
-                const fileListFilename = 'textnow-export-file-list.txt'
-                this.queueDownload(fileListFilename, 'data:text/plain;charset=utf-8,' + Object.keys(this.filesDownloaded).join("\n"))
-                
-                console.log('Finished processing conversations')
-                console.log('Once the downloads finish, run ' + fileDownloadFilename + ', then make sure all the files listed in ' + fileListFilename + ' were successfully downloaded.')
+            if(
+                result.length >= pageSize
+                &&
+                lastUpdatedAt >= this.limitDate
+            ){
+                this.downloadConversations(lastUpdatedAt)
             }
         })
     }
@@ -51,6 +48,10 @@ class TextNowExporter{
         this.queueDownload(filename, 'data:text/plain;charset=utf-8,' + json)
     
         JSON.parse(json).messages.forEach((m) => {
+            if(m.date < this.limitDate){
+                return
+            }
+
             const type = m.message_type
     
             let extension
@@ -98,6 +99,19 @@ class TextNowExporter{
 
     processQueueItem(){
         if(this.queue.length === 0){
+            if(Object.keys(this.filesDownloaded).length > 0){
+                const fileDownloadFilename = 'download-textnow-files.sh'
+                this.queueDownload(fileDownloadFilename, 'data:text/plain;charset=utf-8,' + this.urlCommands.join("\n"))
+    
+                const fileListFilename = 'textnow-export-file-list.txt'
+                this.queueDownload(fileListFilename, 'data:text/plain;charset=utf-8,' + Object.keys(this.filesDownloaded).join("\n"))
+                
+                console.log('Finished processing conversations')
+                console.log('Once the downloads finish, run ' + fileDownloadFilename + ', then make sure all the files listed in ' + fileListFilename + ' were successfully downloaded.')
+
+                this.filesDownloaded = {}
+            }
+
             return
         }
 
@@ -107,4 +121,4 @@ class TextNowExporter{
     }
 }
 
-new TextNowExporter()
+new TextNowExporter('2022-05-07')
