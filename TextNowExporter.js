@@ -21,19 +21,25 @@ class TextNowExporter{
         .then(data => {
             const result = data.result
             
+            let lastUpdatedAt
+            let limitReached = false
             result.forEach((conversation) => {
+                lastUpdatedAt = conversation.updated_at
+                if(lastUpdatedAt < this.limitDate){
+                    limitReached = true
+                    return
+                }
+
                 const filename = conversation.contact_value + '.json'
                 if(this.filesDownloaded[filename] === undefined){
                     this.downloadConversation(filename, conversation)
                 }
             })
 
-            const lastUpdatedAt = result.at(-1).updated_at
-
             if(
                 result.length >= pageSize
                 &&
-                lastUpdatedAt >= this.limitDate
+                !limitReached
             ){
                 this.downloadConversations(lastUpdatedAt)
             }
@@ -121,4 +127,4 @@ class TextNowExporter{
     }
 }
 
-new TextNowExporter('2022-05-07')
+new TextNowExporter('2022-05-12')
