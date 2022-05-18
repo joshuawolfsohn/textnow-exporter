@@ -43,6 +43,9 @@ class TextNowExporter{
             ){
                 this.downloadConversations(lastUpdatedAt)
             }
+            else{
+                this.finishedQueuingDownloads = true
+            }
         })
     }
 
@@ -85,8 +88,6 @@ class TextNowExporter{
     }
     
     queueDownload(filename, data){
-        this.queueStarted = true
-
         this.queue.push(() => {
             const blob = new Blob([data], {type: "octet/stream"})
             const imageUrl = window.URL.createObjectURL(blob)
@@ -102,7 +103,7 @@ class TextNowExporter{
 
     processQueueItem(){
         if(this.queue.length === 0){
-            if(!this.queueStarted || this.queueStopped){
+            if(!this.finishedQueuingDownloads || this.queueStopped){
                 return
             }
             
