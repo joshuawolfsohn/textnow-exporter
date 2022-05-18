@@ -76,6 +76,13 @@ class TextNowExporter{
             }
             else if(type === 4 || type === 8){
                 extension = m.message.split('.').pop()
+                if(extension.length > 5){
+                    // This isn't really an extension. The message must not have contained an extension.
+                    extension = 'unknown'
+                    console.log(m.id)
+                }
+
+                extension = '.' + extension
             }
             else{
                 console.log('Skipping unsupported message_type:', m)
