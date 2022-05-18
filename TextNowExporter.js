@@ -47,13 +47,13 @@ class TextNowExporter{
     }
 
     async downloadConversation(filename, conversation){
-        const json = await fetch('https://www.textnow.com/api/users/' + conversation.username + '/messages?contact_value=' + conversation.contact_value + '&start_message_id=99999999999999&direction=past&page_size=9999999&get_archived=1')
-            .then(response => response.text())
+        const json = JSON.parse(await fetch('https://www.textnow.com/api/users/' + conversation.username + '/messages?contact_value=' + conversation.contact_value + '&start_message_id=99999999999999&direction=past&page_size=9999999&get_archived=1')
+            .then(response => response.text()))
         
         this.filesDownloaded[filename] = true
-        this.queueDownload(filename, 'data:text/plain;charset=utf-8,' + json)
+        this.queueDownload(filename, JSON.stringify(json, null, 2));
     
-        JSON.parse(json).messages.forEach((m) => {
+        json.messages.forEach((m) => {
             if(m.date < this.limitDate){
                 return
             }
@@ -84,24 +84,19 @@ class TextNowExporter{
         })
     }
     
-    queueDownload(filename, url){
+    queueDownload(filename, data){
         this.queueStarted = true
 
         this.queue.push(() => {
-            var xhr = new XMLHttpRequest();
-            xhr.open("GET", url, true);
-            xhr.responseType = "blob";
-            xhr.onload = function(){
-                var urlCreator = window.URL || window.webkitURL;
-                var imageUrl = urlCreator.createObjectURL(this.response);
-                var tag = document.createElement('a');
-                tag.href = imageUrl;
-                tag.download = filename;
-                document.body.appendChild(tag);
-                tag.click();
-                document.body.removeChild(tag);
-            }
-            xhr.send();
+            const blob = new Blob([data], {type: "octet/stream"})
+            const imageUrl = window.URL.createObjectURL(blob)
+            var tag = document.createElement('a');
+            tag.href = imageUrl;
+            tag.download = filename;
+            document.body.appendChild(tag);
+            tag.click();
+            document.body.removeChild(tag);
+            window.URL.revokeObjectURL(imageUrl);
         })
     }
 
@@ -112,10 +107,10 @@ class TextNowExporter{
             }
             
             const fileDownloadFilename = 'download-textnow-files.sh'
-            this.queueDownload(fileDownloadFilename, 'data:text/plain;charset=utf-8,' + this.urlCommands.join("\n"))
+            this.queueDownload(fileDownloadFilename, this.urlCommands.join("\n"))
 
             const fileListFilename = 'textnow-export-file-list.txt'
-            this.queueDownload(fileListFilename, 'data:text/plain;charset=utf-8,' + Object.keys(this.filesDownloaded).join("\n"))
+            this.queueDownload(fileListFilename, Object.keys(this.filesDownloaded).join("\n"))
             
             console.log('Finished processing conversations')
             console.log('Once the downloads finish, run ' + fileDownloadFilename + ', then make sure all the files listed in ' + fileListFilename + ' were successfully downloaded.')
