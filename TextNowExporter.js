@@ -79,7 +79,6 @@ class TextNowExporter{
                 if(extension.length > 5){
                     // This isn't really an extension. The message must not have contained an extension.
                     extension = 'unknown'
-                    console.log(m.id)
                 }
 
                 extension = '.' + extension
